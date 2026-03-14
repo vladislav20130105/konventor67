@@ -64,6 +64,38 @@ document.addEventListener('DOMContentLoaded', function() {
         option.addEventListener('change', checkFormValidity);
     });
 
+    // Background removal toggle handler
+    const removeBackgroundCheckbox = document.getElementById('removeBackground');
+    removeBackgroundCheckbox.addEventListener('change', function() {
+        const formatLabels = document.querySelectorAll('label.format-option');
+        
+        formatLabels.forEach(label => {
+            const input = label.querySelector('input[name="format"]');
+            const div = label.querySelector('div');
+            const format = input.value.toLowerCase();
+            
+            if (this.checked) {
+                // Only allow PNG and JPEG
+                if (format === 'png' || format === 'jpeg') {
+                    input.disabled = false;
+                    div.classList.remove('opacity-50', 'cursor-not-allowed');
+                    label.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    input.disabled = true;
+                    div.classList.add('opacity-50');
+                    label.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            } else {
+                // Enable all formats
+                input.disabled = false;
+                div.classList.remove('opacity-50', 'cursor-not-allowed');
+                label.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+        
+        checkFormValidity();
+    });
+
     // Form submission with retry logic
     convertForm.addEventListener('submit', function(e) {
         e.preventDefault();
