@@ -18,11 +18,85 @@
             body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
             .container { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
         }
+        
+        /* Dark mode styles */
+        html.dark {
+            color-scheme: dark;
+        }
+        
+        html.dark body {
+            background: linear-gradient(to bottom right, #1a1a2e, #16213e);
+            color: #e0e0e0;
+        }
+        
+        html.dark .bg-white {
+            background-color: #2a2a3e;
+            color: #e0e0e0;
+        }
+        
+        html.dark .text-gray-800 {
+            color: #e0e0e0;
+        }
+        
+        html.dark .text-gray-600 {
+            color: #b0b0c0;
+        }
+        
+        html.dark .text-gray-700 {
+            color: #c0c0d0;
+        }
+        
+        html.dark .text-gray-500 {
+            color: #808090;
+        }
+        
+        html.dark .border-gray-300 {
+            border-color: #444;
+        }
+        
+        html.dark .border-gray-200 {
+            border-color: #3a3a4a;
+        }
+        
+        html.dark .bg-gray-50 {
+            background-color: #1f1f2e;
+        }
+        
+        html.dark .bg-red-100 {
+            background-color: #3a1f1f;
+        }
+        
+        html.dark .text-red-700 {
+            color: #ff6b6b;
+        }
+        
+        html.dark .border-red-400 {
+            border-color: #ff6b6b;
+        }
+        
+        html.dark .bg-green-100 {
+            background-color: #1f3a1f;
+        }
+        
+        html.dark .text-green-700 {
+            color: #51cf66;
+        }
+        
+        html.dark .bg-yellow-200 {
+            background-color: #3a3a1f;
+        }
+        
+        html.dark .text-yellow-800 {
+            color: #ffd43b;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        <header class="text-center mb-8 sm:mb-12">
+        <header class="text-center mb-8 sm:mb-12 relative">
+            <button id="themeToggle" class="absolute right-0 top-0 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-lg transition-colors">
+                <i class="fas fa-moon text-lg"></i>
+            </button>
             <h1 class="text-2xl sm:text-4xl font-bold text-gray-800 mb-2 sm:mb-4">
                 <i class="fas fa-image mr-2"></i>Конвертер
             </h1>

@@ -1,9 +1,23 @@
 /* Custom styles for image converter */
 
+:root {
+    color-scheme: light;
+}
+
+html.dark {
+    color-scheme: dark;
+}
+
 .format-option input:checked + div {
     border-color: #4f46e5;
     background-color: #eef2ff;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+html.dark .format-option input:checked + div {
+    border-color: #818cf8;
+    background-color: #312e81;
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
 }
 
 .format-option div {
@@ -13,6 +27,10 @@
 .format-option div:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+html.dark .format-option div:hover {
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
 }
 
 #dropZone {
@@ -29,9 +47,23 @@
     background-color: #eef2ff;
 }
 
+html.dark #dropZone.dragover {
+    border-color: #818cf8;
+    background-color: #312e81;
+}
+
 #previewImage {
     max-height: 300px;
     object-fit: contain;
+}
+
+#themeToggle {
+    transition: all 0.3s ease;
+}
+
+#themeToggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .convert-btn:active {
