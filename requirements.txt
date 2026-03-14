@@ -2,4 +2,5 @@ Flask
 Werkzeug
 waitress
 Pillow
-rembg
+rembg[cpu]
+onnxruntime
