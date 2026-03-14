@@ -1,3 +1,15 @@
+#themeToggle {
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 640px) {
+    #themeToggle {
+        margin-top: 0;
+        margin-right: 0;
+        right: 1.5rem !important;
+        top: -0.5rem !important;
+    }
+}
 /* Custom tooltip for eraser */
 .custom-tooltip {
     opacity: 0;
@@ -114,6 +126,17 @@ html.dark #dropZone.dragover {
     
     .format-option div p {
         font-size: 0.65rem;
+    }
+
+    /* Исправление размера PNG таблички на мобильных */
+    @media (max-width: 640px) {
+        .format-option div {
+            padding: 0.75rem 0.5rem !important;
+            min-width: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    }
     }
     
     .format-option div i {

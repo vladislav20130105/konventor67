@@ -319,12 +319,21 @@
                     <div class="bg-gray-50 rounded-lg p-2 inline-block mx-auto" style="min-width:unset;max-width:220px;">
                         <label class="flex items-center cursor-pointer">
                             <input type="checkbox" name="remove_background" id="removeBackground" class="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500">
-                            <div class="relative group ml-3">
-                                <i class="fas fa-eraser text-base sm:text-lg text-gray-600 group-hover:text-indigo-600 transition-all duration-200" id="eraserIconCustom"></i>
-                                <div class="custom-tooltip absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1 rounded bg-gray-800 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:translate-x-0 translate-x-2 pointer-events-none transition-all duration-200 shadow-lg z-10 hidden md:block">
-                                    Удалить фон
-                                </div>
-                            </div>
+                            <!-- Desktop: иконка + tooltip, Мобильные: только текст -->
+                            <span class="ml-3 text-gray-700 font-medium flex items-center">
+                                <!-- Только иконка с tooltip на десктопе -->
+                                <span class="relative group hidden md:inline-block">
+                                    <i class="fas fa-eraser text-base sm:text-lg text-gray-600 group-hover:text-indigo-600 transition-all duration-200" id="eraserIconCustom"></i>
+                                    <div class="custom-tooltip absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1 rounded bg-gray-800 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:translate-x-0 translate-x-2 pointer-events-none transition-all duration-200 shadow-lg z-10">
+                                        Удалить фон
+                                    </div>
+                                </span>
+                                <!-- Только иконка и текст на мобильных -->
+                                <span class="inline-block md:hidden">
+                                    <i class="fas fa-eraser text-base text-gray-600 align-middle"></i>
+                                    <span class="ml-1 align-middle">Убрать фон</span>
+                                </span>
+                            </span>
                         </label>
                     </div>
 
