@@ -70,41 +70,38 @@ def convert_image():
                 # Convert PIL Image to OpenCV format
                 cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                 
-                # Convert to HSV for better color detection
-                hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
-                
-                # Create initial mask using GrabCut for better results
+                # Create initial mask using GrabCut
                 mask = np.zeros(cv_img.shape[:2], np.uint8)
                 bgd_model = np.zeros((1, 65), np.float64)
                 fgd_model = np.zeros((1, 65), np.float64)
                 
                 h, w = cv_img.shape[:2]
-                rect = (5, 5, w - 5, h - 5)
+                rect = (10, 10, w - 10, h - 10)
                 
-                # Apply GrabCut with more iterations
-                cv2.grabCut(cv_img, mask, rect, bgd_model, fgd_model, 10, cv2.GC_INIT_WITH_RECT)
+                # Apply GrabCut
+                cv2.grabCut(cv_img, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
                 
-                # Refine mask with morphological operations
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                # Create binary mask (1 for foreground, 0 for background)
                 mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
                 
-                # Apply morphological closing to fill holes
-                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=2)
-                # Apply morphological opening to remove noise
+                # Clean up with morphological operations
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=1)
                 mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel, iterations=1)
                 
-                # Apply Gaussian blur to smooth edges
-                mask2 = cv2.GaussianBlur(mask2, (5, 5), 0)
+                # Dilate to recover some area
+                mask2 = cv2.dilate(mask2, kernel, iterations=1)
                 
-                # Convert mask to alpha channel (0-255)
+                # Convert to 8-bit (0-255)
                 alpha = (mask2 * 255).astype('uint8')
                 
-                # Convert to PIL RGBA
-                img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-                img_pil = Image.fromarray(img_rgb).convert('RGBA')
+                # Apply slight blur to edges for smoother transition
+                alpha = cv2.GaussianBlur(alpha, (3, 3), 0)
                 
-                # Apply alpha channel
-                img_pil.putalpha(Image.fromarray(alpha))
+                # Convert to PIL RGBA and apply alpha
+                img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+                img_pil = Image.fromarray(img_rgb, 'RGB').convert('RGBA')
+                img_pil.putalpha(Image.fromarray(alpha, 'L'))
                 img = img_pil
                 
                 # Force format to PNG for transparency
