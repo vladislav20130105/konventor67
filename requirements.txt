@@ -2,5 +2,5 @@ Flask
 Werkzeug
 waitress
 Pillow
-rembg[cpu]
-onnxruntime
+opencv-python-headless
+numpy

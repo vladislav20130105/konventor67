@@ -4,11 +4,12 @@ import tempfile
 from io import BytesIO
 from werkzeug.utils import secure_filename
 from PIL import Image
+import numpy as np
 try:
-    from rembg import remove
-    HAS_REMBG = True
+    import cv2
+    HAS_BG_REMOVAL = True
 except ImportError:
-    HAS_REMBG = False
+    HAS_BG_REMOVAL = False
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
@@ -51,7 +52,7 @@ def convert_image():
         
         # Check if background removal is requested
         remove_bg = request.form.get('remove_background') == 'on'
-        if remove_bg and not HAS_REMBG:
+        if remove_bg and not HAS_BG_REMOVAL:
             return {'error': 'Background removal feature is not available. Please try again later.'}, 400
         
         # Save uploaded file
@@ -63,16 +64,49 @@ def convert_image():
         # Convert image using PIL
         img = Image.open(temp_input)
         
-        # Remove background if requested
+        # Remove background if requested using advanced morphological operations
         if remove_bg:
             try:
-                # Remove background - rembg returns PNG bytes
-                with open(temp_input, 'rb') as f:
-                    img_data = f.read()
-                img_no_bg_bytes = remove(img_data)
-                # Convert bytes to PIL Image
-                img = Image.open(BytesIO(img_no_bg_bytes))
-                img.load()  # Force load to prevent file handle issues
+                # Convert PIL Image to OpenCV format
+                cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+                
+                # Convert to HSV for better color detection
+                hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+                
+                # Create initial mask using GrabCut for better results
+                mask = np.zeros(cv_img.shape[:2], np.uint8)
+                bgd_model = np.zeros((1, 65), np.float64)
+                fgd_model = np.zeros((1, 65), np.float64)
+                
+                h, w = cv_img.shape[:2]
+                rect = (5, 5, w - 5, h - 5)
+                
+                # Apply GrabCut with more iterations
+                cv2.grabCut(cv_img, mask, rect, bgd_model, fgd_model, 10, cv2.GC_INIT_WITH_RECT)
+                
+                # Refine mask with morphological operations
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+                
+                # Apply morphological closing to fill holes
+                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=2)
+                # Apply morphological opening to remove noise
+                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel, iterations=1)
+                
+                # Apply Gaussian blur to smooth edges
+                mask2 = cv2.GaussianBlur(mask2, (5, 5), 0)
+                
+                # Convert mask to alpha channel (0-255)
+                alpha = (mask2 * 255).astype('uint8')
+                
+                # Convert to PIL RGBA
+                img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+                img_pil = Image.fromarray(img_rgb).convert('RGBA')
+                
+                # Apply alpha channel
+                img_pil.putalpha(Image.fromarray(alpha))
+                img = img_pil
+                
                 # Force format to PNG for transparency
                 format_type = 'png'
             except Exception as e:
