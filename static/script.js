@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
         option.addEventListener('change', checkFormValidity);
     });
 
-    // Form submission
+    // Form submission with retry logic
     convertForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -51,60 +51,110 @@ document.addEventListener('DOMContentLoaded', function() {
             // Create form data for AJAX submission
             const formData = new FormData(convertForm);
             
-            fetch('/convert', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (response.ok) {
-                    return response.blob();
-                } else {
-                    throw new Error('Conversion failed');
-                }
-            })
-            .then(blob => {
-                // Get filename from response or create one
-                const originalFile = fileInput.files[0];
-                const format = document.querySelector('input[name="format"]:checked').value;
-                const nameWithoutExt = originalFile.name.split('.').slice(0, -1).join('.');
-                const filename = `${nameWithoutExt}.${format}`;
-                
-                // Create download link
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                
-                // Hide loading and reset form
-                hideLoading();
-                resetForm();
-                
-                // Show success message
-                showSuccessMessage('Изображение успешно конвертировано!');
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                hideLoading();
-                alert('Ошибка при конвертации изображения');
-            });
+            // Submit with retry logic
+            submitWithRetry(formData, 0);
         }
     });
+    
+    function submitWithRetry(formData, retryCount) {
+        const maxRetries = 3;
+        const timeout = isMobile() ? 90000 : 30000; // 90s for mobile, 30s for desktop
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        fetch('/convert', {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+        })
+        .then(response => {
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                return response.blob();
+            } else if (response.status >= 500 && retryCount < maxRetries) {
+                // Retry on server errors
+                throw new Error('SERVER_ERROR_RETRY');
+            } else {
+                throw new Error('Conversion failed');
+            }
+        })
+        .then(blob => {
+            // Get filename from response or create one
+            const originalFile = fileInput.files[0];
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const nameWithoutExt = originalFile.name.split('.').slice(0, -1).join('.');
+            const filename = `${nameWithoutExt}.${format}`;
+            
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Hide loading and reset form
+            hideLoading();
+            resetForm();
+            
+            // Show success message
+            showSuccessMessage('Изображение успешно конвертировано!');
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            
+            if (error.message === 'SERVER_ERROR_RETRY' && retryCount < maxRetries) {
+                console.log(`Retry attempt ${retryCount + 1}/${maxRetries}`);
+                setTimeout(() => submitWithRetry(formData, retryCount + 1), 2000);
+            } else {
+                console.error('Error:', error);
+                hideLoading();
+                
+                if (error.name === 'AbortError') {
+                    alert('Истекло время ожидания. Проверьте размер файла и интернет-соединение.');
+                } else {
+                    alert('Ошибка при конвертации изображения. Пожалуйста, попробуйте снова.');
+                }
+            }
+        });
+    }
 
     function handleFileSelect(e) {
         const file = e.target.files[0];
-        if (file && file.type.startsWith('image/')) {
+        if (file) {
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff'];
+            if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
+                alert('Пожалуйста, загрузьте валидное изображение');
+                resetPreview();
+                return;
+            }
+            
+            // Check file size before processing
+            const maxSize = isMobile() ? 5 * 1024 * 1024 : 16 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert(`Файл слишком большой. Максимум ${maxSize / (1024 * 1024)}MB`);
+                resetPreview();
+                return;
+            }
+            
             const reader = new FileReader();
             
             reader.onload = function(e) {
                 previewImage.src = e.target.result;
-                fileName.textContent = file.name;
+                fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(2) + ' KB)';
                 previewContainer.classList.remove('hidden');
                 checkFormValidity();
+            };
+            
+            reader.onerror = function() {
+                alert('Ошибка при чтении файла');
+                resetPreview();
             };
             
             reader.readAsDataURL(file);
@@ -134,13 +184,20 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
         
-        // Check file size (16MB max)
-        if (file.size > 16 * 1024 * 1024) {
-            alert('Размер файла не должен превышать 16MB');
+        // Different limits for mobile and desktop
+        const maxSize = isMobile() ? 5 * 1024 * 1024 : 16 * 1024 * 1024; // 5MB mobile, 16MB desktop
+        
+        if (file.size > maxSize) {
+            const maxMB = maxSize / (1024 * 1024);
+            alert(`Размер файла не должен превышать ${maxMB}MB. На мобильных устройствах максимум 5MB.`);
             return false;
         }
         
         return true;
+    }
+    
+    function isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
     function showLoading() {
