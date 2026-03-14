@@ -151,16 +151,49 @@ def convert_image():
             'tiff': 'TIFF',
             'tif': 'TIFF',
             'ico': 'ICO',
+            'cur': 'ICO',  # CUR uses ICO format internally
             'pdf': 'PDF',
+            'psd': 'PNG',  # Save PSD as PNG
+            'eps': 'PNG',  # Save EPS as PNG
+            'svg': 'PNG',  # Save SVG as PNG
+            'tga': 'TGA',
+            'jp2': 'JPEG2000',
+            'j2k': 'JPEG2000',
+            'jpf': 'JPEG2000',
+            'jpx': 'JPEG2000',
+            'pgm': 'PPM',
+            'pbm': 'PPM',
+            'pnm': 'PPM',
+            'ppm': 'PPM',
+            'rgb': 'SGI',
+            'xbm': 'XBM',
+            'xpm': 'XPM',
         }
+        
+        # Formats that need to be converted to PNG if not supported
+        unsupported_formats = {'psd', 'eps', 'svg', 'sgi', 'rgba', 'bw', 'ras', 'sun', 'im', 'msp', 'pcd', 'cut', 'gbr', 'pat', 'pct', 'pic', 'pict', 'pns', 'psp', 'pxr', 'sct', 'wmf', 'emf', 'iff', 'lbm', 'fpx'}
         
         pil_format = format_map.get(format_type, format_type.upper())
         
-        # Set quality for optimized formats
-        if format_type in ['jpg', 'jpeg', 'webp']:
-            img.save(temp_output, format=pil_format, quality=85, optimize=True)
-        else:
-            img.save(temp_output, format=pil_format)
+        # If format is truly unsupported, convert to PNG
+        if format_type in unsupported_formats:
+            format_type = 'png'
+            pil_format = 'PNG'
+            temp_output = temp_output.rsplit('.', 1)[0] + '.png'
+        
+        # Handle special case for formats that PIL has issues with
+        try:
+            if format_type in ['jpg', 'jpeg', 'webp']:
+                img.save(temp_output, format=pil_format, quality=85, optimize=True)
+            else:
+                img.save(temp_output, format=pil_format)
+        except Exception as save_error:
+            # If save fails, fall back to PNG
+            print(f'Failed to save as {pil_format}, falling back to PNG: {str(save_error)}')
+            format_type = 'png'
+            pil_format = 'PNG'
+            temp_output = temp_output.rsplit('.', 1)[0] + '.png'
+            img.save(temp_output, format='PNG')
         
         # Send file for download
         response = send_file(
