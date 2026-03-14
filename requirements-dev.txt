@@ -3,4 +3,3 @@ Werkzeug
 waitress
 Pillow
 numpy
-opencv-python

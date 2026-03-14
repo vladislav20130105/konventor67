@@ -98,11 +98,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.ok) {
                 return response.blob();
-            } else if (response.status >= 500 && retryCount < maxRetries) {
-                // Retry on server errors
-                throw new Error('SERVER_ERROR_RETRY');
             } else {
-                throw new Error('Conversion failed');
+                // Try to parse error message from response
+                return response.json().then(data => {
+                    const error = new Error(data.error || 'Conversion failed');
+                    error.statusCode = response.status;
+                    throw error;
+                }).catch(() => {
+                    if (response.status >= 500 && retryCount < maxRetries) {
+                        throw new Error('SERVER_ERROR_RETRY');
+                    }
+                    throw new Error('Conversion failed');
+                });
             }
         })
         .then(blob => {
@@ -141,9 +148,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 hideLoading();
                 
                 if (error.name === 'AbortError') {
-                    alert('Истекло время ожидания. Проверьте размер файла и интернет-соединение.');
+                    showErrorMessage('Истекло время ожидания. Проверьте размер файла и интернет-соединение.');
+                } else if (error.message) {
+                    showErrorMessage(error.message);
                 } else {
-                    alert('Ошибка при конвертации изображения. Пожалуйста, попробуйте снова.');
+                    showErrorMessage('Ошибка при конвертации изображения. Пожалуйста, попробуйте снова.');
                 }
             }
         });
@@ -155,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validate file type
             const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff'];
             if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
-                alert('Пожалуйста, загрузьте валидное изображение');
+                showErrorMessage('Пожалуйста, загрузьте валидное изображение');
                 resetPreview();
                 return;
             }
@@ -163,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Check file size before processing
             const maxSize = isMobile() ? 5 * 1024 * 1024 : 16 * 1024 * 1024;
             if (file.size > maxSize) {
-                alert(`Файл слишком большой. Максимум ${maxSize / (1024 * 1024)}MB`);
+                showErrorMessage(`Файл слишком большой. Максимум ${maxSize / (1024 * 1024)}MB`);
                 resetPreview();
                 return;
             }
@@ -178,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             reader.onerror = function() {
-                alert('Ошибка при чтении файла');
+                showErrorMessage('Ошибка при чтении файла');
                 resetPreview();
             };
             
@@ -200,12 +209,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const format = document.querySelector('input[name="format"]:checked');
         
         if (!file) {
-            alert('Пожалуйста, выберите файл');
+            showErrorMessage('Пожалуйста, выберите файл');
             return false;
         }
         
         if (!format) {
-            alert('Пожалуйста, выберите формат для конвертации');
+            showErrorMessage('Пожалуйста, выберите формат для конвертации');
             return false;
         }
         
@@ -214,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (file.size > maxSize) {
             const maxMB = maxSize / (1024 * 1024);
-            alert(`Размер файла не должен превышать ${maxMB}MB. На мобильных устройствах максимум 5MB.`);
+            showErrorMessage(`Размер файла не должен превышать ${maxMB}MB. На мобильных устройствах максимум 5MB.`);
             return false;
         }
         
@@ -252,15 +261,30 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create success alert
         const successDiv = document.createElement('div');
         successDiv.className = 'bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6 mt-4';
-        successDiv.textContent = message;
+        successDiv.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${message}`;
         
         // Insert after form
         convertForm.parentNode.insertBefore(successDiv, convertForm.nextSibling);
         
-        // Remove after 3 seconds
+        // Remove after 5 seconds
         setTimeout(() => {
             successDiv.remove();
-        }, 3000);
+        }, 5000);
+    }
+    
+    function showErrorMessage(message) {
+        // Create error alert
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 mt-4';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${message}`;
+        
+        // Insert after form
+        convertForm.parentNode.insertBefore(errorDiv, convertForm.nextSibling);
+        
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 8000);
     }
 
     function resetPreview() {

@@ -6,14 +6,6 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 import numpy as np
 
-# Try to import OpenCV for background removal
-try:
-    import cv2
-    HAS_BG_REMOVAL = True
-except ImportError:
-    HAS_BG_REMOVAL = False
-    print("OpenCV not available - background removal disabled")
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -55,8 +47,6 @@ def convert_image():
         
         # Check if background removal is requested
         remove_bg = request.form.get('remove_background') == 'on'
-        if remove_bg and not HAS_BG_REMOVAL:
-            return {'error': 'Background removal feature is not available. Please try again later.'}, 400
         
         # Save uploaded file
         filename = secure_filename(file.filename)
@@ -67,45 +57,48 @@ def convert_image():
         # Convert image using PIL
         img = Image.open(temp_input)
         
-        # Remove background if requested using advanced morphological operations
+        # Remove background if requested using PIL-based algorithm
         if remove_bg:
             try:
-                # Convert PIL Image to OpenCV format
-                cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+                # Convert to RGBA if not already
+                img = img.convert('RGBA')
                 
-                # Create initial mask using GrabCut
-                mask = np.zeros(cv_img.shape[:2], np.uint8)
-                bgd_model = np.zeros((1, 65), np.float64)
-                fgd_model = np.zeros((1, 65), np.float64)
+                # Get image data as numpy array
+                data = np.array(img)
                 
-                h, w = cv_img.shape[:2]
-                rect = (10, 10, w - 10, h - 10)
+                # Detect background color (most common color at edges)
+                edge_colors = []
+                h, w = data.shape[:2]
                 
-                # Apply GrabCut
-                cv2.grabCut(cv_img, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
+                # Sample edges
+                edge_colors.extend(data[0, :, :3].reshape(-1, 3))  # Top
+                edge_colors.extend(data[-1, :, :3].reshape(-1, 3))  # Bottom
+                edge_colors.extend(data[:, 0, :3].reshape(-1, 3))  # Left
+                edge_colors.extend(data[:, -1, :3].reshape(-1, 3))  # Right
                 
-                # Create binary mask (1 for foreground, 0 for background)
-                mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+                edge_colors = np.array(edge_colors)
                 
-                # Clean up with morphological operations
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel, iterations=1)
-                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel, iterations=1)
+                # Find the most common color (background)
+                unique_colors, counts = np.unique(edge_colors.reshape(-1, edge_colors.shape[-1]), axis=0, return_counts=True)
+                bg_color = unique_colors[np.argmax(counts)]
                 
-                # Dilate to recover some area
-                mask2 = cv2.dilate(mask2, kernel, iterations=1)
+                # Create mask based on color similarity
+                r, g, b = data[:, :, 0], data[:, :, 1], data[:, :, 2]
+                br, bg_val, bb = int(bg_color[0]), int(bg_color[1]), int(bg_color[2])
                 
-                # Convert to 8-bit (0-255)
-                alpha = (mask2 * 255).astype('uint8')
+                # Color distance threshold
+                threshold = 30
+                distance = np.sqrt((r.astype(int) - br)**2 + (g.astype(int) - bg_val)**2 + (b.astype(int) - bb)**2)
+                mask = (distance > threshold).astype(np.uint8) * 255
                 
-                # Apply slight blur to edges for smoother transition
-                alpha = cv2.GaussianBlur(alpha, (3, 3), 0)
+                # Apply morphological operations to clean up
+                from PIL import ImageFilter
+                mask_img = Image.fromarray(mask, 'L')
+                mask_img = mask_img.filter(ImageFilter.MedianFilter(size=5))
+                mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=2))
                 
-                # Convert to PIL RGBA and apply alpha
-                img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-                img_pil = Image.fromarray(img_rgb, 'RGB').convert('RGBA')
-                img_pil.putalpha(Image.fromarray(alpha, 'L'))
-                img = img_pil
+                # Apply mask to image
+                img.putalpha(mask_img)
                 
                 # Force format to PNG for transparency
                 format_type = 'png'
