@@ -1,7 +1,14 @@
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for
 import os
 import tempfile
+from io import BytesIO
 from werkzeug.utils import secure_filename
+from PIL import Image
+try:
+    from rembg import remove
+    HAS_REMBG = True
+except ImportError:
+    HAS_REMBG = False
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
@@ -42,6 +49,11 @@ def convert_image():
         if not format_type or format_type not in ALLOWED_EXTENSIONS:
             return {'error': 'Invalid format'}, 400
         
+        # Check if background removal is requested
+        remove_bg = request.form.get('remove_background') == 'on'
+        if remove_bg and not HAS_REMBG:
+            return {'error': 'Background removal feature is not available. Please try again later.'}, 400
+        
         # Save uploaded file
         filename = secure_filename(file.filename)
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
@@ -49,24 +61,72 @@ def convert_image():
             temp_input = temp_file.name
         
         # Convert image using PIL
-        from PIL import Image
         img = Image.open(temp_input)
         
+        # Remove background if requested
+        if remove_bg:
+            try:
+                # Remove background - rembg returns PNG bytes
+                with open(temp_input, 'rb') as f:
+                    img_data = f.read()
+                img_no_bg_bytes = remove(img_data)
+                # Convert bytes to PIL Image
+                img = Image.open(BytesIO(img_no_bg_bytes))
+                img.load()  # Force load to prevent file handle issues
+                # Force format to PNG for transparency
+                format_type = 'png'
+            except Exception as e:
+                print(f'Background removal error: {str(e)}')
+                return {'error': f'Failed to remove background: {str(e)}'}, 500
+        
         # Convert RGBA to RGB if needed for formats that don't support alpha
-        if format_type in ['jpg', 'jpeg', 'bmp'] and img.mode in ('RGBA', 'LA', 'P'):
-            rgb_img = Image.new('RGB', img.size, (255, 255, 255))
-            rgb_img.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-            img = rgb_img
+        if format_type in ['jpg', 'jpeg', 'bmp']:
+            if img.mode == 'RGBA':
+                rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                rgb_img.paste(img, mask=img.split()[3])  # Use alpha channel
+                img = rgb_img
+            elif img.mode == 'LA':
+                rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                rgb_img.paste(img.convert('RGB'), mask=img.split()[1])  # Use alpha channel
+                img = rgb_img
+            elif img.mode == 'P':
+                # Palette mode - convert to RGB
+                if 'transparency' in img.info:
+                    img = img.convert('RGBA')
+                    rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                    rgb_img.paste(img, mask=img.split()[3])
+                    img = rgb_img
+                else:
+                    img = img.convert('RGB')
+            elif img.mode not in ('RGB', 'L'):
+                # Convert any other mode to RGB
+                img = img.convert('RGB')
         
         # Save converted file
         with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format_type}') as temp_out_file:
             temp_output = temp_out_file.name
         
+        # Map format to PIL format name
+        format_map = {
+            'jpg': 'JPEG',
+            'jpeg': 'JPEG',
+            'png': 'PNG',
+            'gif': 'GIF',
+            'bmp': 'BMP',
+            'webp': 'WebP',
+            'tiff': 'TIFF',
+            'tif': 'TIFF',
+            'ico': 'ICO',
+            'pdf': 'PDF',
+        }
+        
+        pil_format = format_map.get(format_type, format_type.upper())
+        
         # Set quality for optimized formats
         if format_type in ['jpg', 'jpeg', 'webp']:
-            img.save(temp_output, format=format_type.upper() if format_type != 'jpg' else 'JPEG', quality=85, optimize=True)
+            img.save(temp_output, format=pil_format, quality=85, optimize=True)
         else:
-            img.save(temp_output, format=format_type.upper())
+            img.save(temp_output, format=pil_format)
         
         # Send file for download
         response = send_file(

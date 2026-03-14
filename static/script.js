@@ -58,7 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function submitWithRetry(formData, retryCount) {
         const maxRetries = 3;
-        const timeout = isMobile() ? 90000 : 30000; // 90s for mobile, 30s for desktop
+        // Increase timeout for background removal (5 minutes max)
+        const hasRemoveBg = formData.get('remove_background') === 'on';
+        const timeout = hasRemoveBg ? 300000 : (isMobile() ? 90000 : 30000); // 5min for BG removal, 90s for mobile, 30s for desktop
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
