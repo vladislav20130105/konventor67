@@ -1,19 +1,18 @@
 import requests
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for
-import requests
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for
 import os
 import tempfile
 from io import BytesIO
 from werkzeug.utils import secure_filename
 from PIL import Image
 import numpy as np
+from pydub import AudioSegment
 
 # Supported file extensions
 ALLOWED_EXTENSIONS = {
     'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'tif', 'ico', 'cur',
     'pdf', 'psd', 'eps', 'svg', 'tga', 'jp2', 'j2k', 'jpf', 'jpx', 'pgm',
-    'pbm', 'pnm', 'ppm', 'rgb', 'xbm', 'xpm'
+    'pbm', 'pnm', 'ppm', 'rgb', 'xbm', 'xpm', 'wav', 'mp3', 'ogg', 'flac', 'aac', 'm4a'
 }
 
 def allowed_file(filename):
@@ -76,6 +75,50 @@ def convert_image():
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
             file.save(temp_file.name)
             temp_input = temp_file.name
+        
+        # Check if it's an audio file
+        audio_formats = {'wav', 'mp3', 'ogg', 'flac', 'aac', 'm4a'}
+        file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        
+        if file_ext in audio_formats:
+            # Handle audio conversion
+            try:
+                audio = AudioSegment.from_file(temp_input)
+                
+                # Convert to requested format
+                if format_type == 'wav':
+                    audio.export(temp_output, format='wav')
+                elif format_type == 'mp3':
+                    audio.export(temp_output, format='mp3', bitrate='192k')
+                elif format_type == 'ogg':
+                    audio.export(temp_output, format='ogg')
+                elif format_type == 'flac':
+                    audio.export(temp_output, format='flac')
+                elif format_type in ['aac', 'm4a']:
+                    audio.export(temp_output, format='aac')
+                else:
+                    return {'error': 'Unsupported audio format'}, 400
+                
+                # Send file for download
+                response = send_file(
+                    temp_output,
+                    mimetype=f'audio/{format_type}',
+                    as_attachment=True,
+                    download_name=f'converted.{format_type}'
+                )
+                
+                # Clean up temp files
+                try:
+                    os.remove(temp_input)
+                    os.remove(temp_output)
+                except:
+                    pass
+                
+                return response
+                
+            except Exception as e:
+                print(f'Audio conversion error: {str(e)}')
+                return {'error': f'Audio conversion failed: {str(e)}'}, 500
         
         # Convert image using PIL
         img = Image.open(temp_input)
@@ -184,6 +227,12 @@ def convert_image():
             'rgb': 'SGI',
             'xbm': 'XBM',
             'xpm': 'XPM',
+            'wav': 'wav',
+            'mp3': 'mp3',
+            'ogg': 'ogg',
+            'flac': 'flac',
+            'aac': 'aac',
+            'm4a': 'aac'
         }
         
         # Formats that need to be converted to PNG if not supported

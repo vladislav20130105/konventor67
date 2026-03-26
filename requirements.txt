@@ -4,3 +4,4 @@ waitress
 Pillow
 numpy
 requests
+pydub
