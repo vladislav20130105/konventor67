@@ -81,6 +81,10 @@ def convert_image():
         file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
         
         if file_ext in audio_formats:
+            # Create temp output file for audio
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format_type}') as temp_out_file:
+                temp_output = temp_out_file.name
+            
             # Handle audio conversion using ffmpeg-python
             try:
                 # Convert to requested format using ffmpeg
