@@ -6,7 +6,7 @@ from io import BytesIO
 from werkzeug.utils import secure_filename
 from PIL import Image
 import numpy as np
-from pydub import AudioSegment
+import ffmpeg
 
 # Supported file extensions
 ALLOWED_EXTENSIONS = {
@@ -81,21 +81,19 @@ def convert_image():
         file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
         
         if file_ext in audio_formats:
-            # Handle audio conversion
+            # Handle audio conversion using ffmpeg-python
             try:
-                audio = AudioSegment.from_file(temp_input)
-                
-                # Convert to requested format
+                # Convert to requested format using ffmpeg
                 if format_type == 'wav':
-                    audio.export(temp_output, format='wav')
+                    ffmpeg.input(temp_input).output(temp_output, format='wav').run(overwrite_output=True)
                 elif format_type == 'mp3':
-                    audio.export(temp_output, format='mp3', bitrate='192k')
+                    ffmpeg.input(temp_input).output(temp_output, format='mp3', audio_bitrate='192k').run(overwrite_output=True)
                 elif format_type == 'ogg':
-                    audio.export(temp_output, format='ogg')
+                    ffmpeg.input(temp_input).output(temp_output, format='libvorbis').run(overwrite_output=True)
                 elif format_type == 'flac':
-                    audio.export(temp_output, format='flac')
+                    ffmpeg.input(temp_input).output(temp_output, format='flac').run(overwrite_output=True)
                 elif format_type in ['aac', 'm4a']:
-                    audio.export(temp_output, format='aac')
+                    ffmpeg.input(temp_input).output(temp_output, format='aac').run(overwrite_output=True)
                 else:
                     return {'error': 'Unsupported audio format'}, 400
                 
@@ -119,8 +117,8 @@ def convert_image():
             except Exception as e:
                 print(f'Audio conversion error: {str(e)}')
                 # Check if ffmpeg is missing
-                if 'ffmpeg' in str(e).lower() or 'pyaudioop' in str(e).lower():
-                    return {'error': 'Audio conversion not available on this server. Please contact administrator to install ffmpeg.'}, 500
+                if 'ffmpeg' in str(e).lower() or 'not found' in str(e).lower():
+                    return {'error': 'Audio conversion not available on this server. FFmpeg is required for audio conversion.'}, 500
                 return {'error': f'Audio conversion failed: {str(e)}'}, 500
         
         # Convert image using PIL

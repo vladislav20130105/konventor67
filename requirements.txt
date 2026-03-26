@@ -4,4 +4,4 @@ waitress
 Pillow
 numpy
 requests
-pydub
+ffmpeg-python

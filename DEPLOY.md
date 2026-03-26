@@ -160,10 +160,12 @@ docker-compose up -d
 2. Подключите GitHub репозиторий
 3. Создайте новый Web Service
 4. Укажите:
-   - Build Command: `pip install -r requirements.txt && apt-get update && apt-get install -y ffmpeg`
+   - Build Command: `pip install -r requirements.txt`
    - Start Command: `gunicorn app:app`
    - Runtime: Python 3
-   - Environment Variables: добавьте `FFMPEG_PATH=/usr/bin/ffmpeg`
+   - Environment Variables: добавьте `FFMPEG_PATH=/usr/bin/ffmpeg` (если доступно)
+
+**Примечание:** Render.com имеет предустановленный ffmpeg. Если аудио конвертация не работает, попробуйте использовать Docker развертывание с ffmpeg.
 
 ## Настройка для продакшена
 
