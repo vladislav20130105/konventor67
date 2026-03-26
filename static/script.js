@@ -185,7 +185,8 @@ document.addEventListener('DOMContentLoaded', function() {
             resetForm();
             
             // Show success message
-            showSuccessMessage('Изображение успешно конвертировано!');
+            const fileType = file.type.startsWith('audio/') ? 'Аудиофайл' : 'Изображение';
+            showSuccessMessage(`${fileType} успешно конвертировано!`);
         })
         .catch(error => {
             clearTimeout(timeoutId);
@@ -202,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (error.message) {
                     showErrorMessage(error.message);
                 } else {
-                    showErrorMessage('Ошибка при конвертации изображения. Пожалуйста, попробуйте снова.');
+                    showErrorMessage('Ошибка при конвертации файла. Пожалуйста, попробуйте снова.');
                 }
             }
         });
@@ -211,10 +212,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleFileSelect(e) {
         const file = e.target.files[0];
         if (file) {
-            // Validate file type
-            const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff'];
-            if (!validTypes.includes(file.type) && !file.type.startsWith('image/')) {
-                showErrorMessage('Пожалуйста, загрузьте валидное изображение');
+            // Validate file type - support both images and audio
+            const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff'];
+            const validAudioTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/flac', 'audio/aac', 'audio/mp4', 'audio/m4a'];
+            const validTypes = [...validImageTypes, ...validAudioTypes];
+            
+            if (!validTypes.includes(file.type) && !file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
+                showErrorMessage('Пожалуйста, загрузите валидное изображение или аудиофайл');
                 resetPreview();
                 return;
             }
@@ -237,7 +241,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const reader = new FileReader();
 
             reader.onload = function(e) {
-                previewImage.src = e.target.result;
+                // Show preview for images, show info for audio
+                if (file.type.startsWith('image/')) {
+                    previewImage.src = e.target.result;
+                    previewImage.style.display = 'block';
+                } else if (file.type.startsWith('audio/')) {
+                    // Hide image and show audio icon
+                    previewImage.style.display = 'none';
+                    // You could add an audio icon here if needed
+                }
+                
                 fileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(2) + ' KB)';
                 previewContainer.classList.remove('hidden');
                 checkFormValidity();
