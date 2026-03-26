@@ -124,6 +124,12 @@ def convert_image():
                 if 'ffmpeg' in str(e).lower() or 'not found' in str(e).lower() or 'No such file or directory' in str(e):
                     return {'error': 'Audio conversion not available on this server. FFmpeg is required for audio conversion.'}, 500
                 return {'error': f'Audio conversion failed: {str(e)}'}, 500
+            finally:
+                # Always clean up input file
+                try:
+                    os.remove(temp_input)
+                except:
+                    pass
         
         # Convert image using PIL
         img = Image.open(temp_input)
